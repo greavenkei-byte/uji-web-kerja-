@@ -1,32 +1,4 @@
-/* Akasha — application logic (v3 Revamp: Hero Banner, Kanban, Task Discussion, Contribution) */
-import { initializeApp } from "[https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js](https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js)";
-import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-  createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider,
-  sendPasswordResetEmail, updateProfile, updatePassword, signOut,
-  setPersistence, browserLocalPersistence, browserSessionPersistence
-} from "[https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js](https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js)";
-import {
-  getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
-  updateDoc, deleteDoc, query, where, orderBy, limit, onSnapshot,
-  serverTimestamp, arrayUnion, arrayRemove, writeBatch
-} from "[https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js](https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js)";
-
-/* ⚠️ TEMPELKAN KONFIGURASI FIREBASE MILIKMU DI SINI ⚠️ */
-const firebaseConfig = {
-  apiKey: "ISI_API_KEY_KAMU",
-  authDomain: "ISI_AUTH_DOMAIN_KAMU",
-  projectId: "ISI_PROJECT_ID_KAMU",
-  storageBucket: "ISI_STORAGE_BUCKET_KAMU",
-  messagingSenderId: "ISI_MESSAGING_SENDER_ID_KAMU",
-  appId: "ISI_APP_ID_KAMU"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const googleProvider = new GoogleAuthProvider();
-
+/* Akasha — Mode Preview / Demo Offline (Tanpa Login & Tanpa Firebase Asli) */
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -39,14 +11,7 @@ const formatDateID = (iso) => {
   return new Date(y, m - 1, d).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 };
 const formatFullTodayID = () => new Date().toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const timeAgo = (ts) => {
-  if (!ts) return "baru saja";
-  const sec = Math.max(1, Math.floor((Date.now() - (ts.toMillis ? ts.toMillis() : Number(ts))) / 1000));
-  if (sec < 60) return "baru saja";
-  if (sec < 3600) return `${Math.floor(sec / 60)} mnt lalu`;
-  if (sec < 86400) return `${Math.floor(sec / 3600)} jam lalu`;
-  return `${Math.floor(sec / 86400)} hr lalu`;
-};
+const timeAgo = () => "baru saja";
 const toast = (msg, type = "") => {
   const box = $("toastContainer");
   if (!box) return;
@@ -136,7 +101,7 @@ function enhanceSelect(sel) {
   trigger.setAttribute("aria-expanded", "false");
   const valueSpan = document.createElement("span");
   valueSpan.className = "ak-select-value";
-  const arrow = document.createElementNS("[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)", "svg");
+  const arrow = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   arrow.setAttribute("viewBox", "0 0 20 20");
   arrow.setAttribute("fill", "none");
   arrow.setAttribute("class", "ak-select-arrow");
@@ -231,96 +196,92 @@ function appPrompt({ title = "Masukkan nilai", message = "", label = "Nilai", pl
   });
 }
 
-/* ══════════ STATE ══════════ */
+/* ══════════ STATE & DATA DUMMY PREVIEW ══════════ */
+const today = todayISO();
 const state = {
-  user: null,
-  workspaces: [],
+  user: { uid: "demo-mentor", displayName: "Greaven (Mode Preview)", email: "preview@akasha.id" },
+  workspaces: [
+    { id: "ws-demo", name: "Tim Produksi Animasi 3D", code: "AKS26A", ownerId: "demo-mentor", memberIds: ["demo-mentor", "m2", "m3"], driveLink: "https://drive.google.com" }
+  ],
   dashTasks: [],
-  notifications: [],
+  notifications: [
+    { id: "n1", text: "Nadia Putri mengirim laporan tugas “Color Grading Teaser Trailer”.", wsId: "ws-demo", wsName: "Tim Produksi Animasi 3D", taskId: "t2", read: false }
+  ],
   currentWs: null,
-  members: {},
-  divisions: [],
-  tasks: [],
-  activities: [],
-  announcements: [],
+  members: {
+    "demo-mentor": { id: "demo-mentor", name: "Greaven (Mentor)", email: "greaven@tim.id", role: "mentor", divisionId: "general", lastSeen: Date.now() },
+    "m2": { id: "m2", name: "Raka Pratama", email: "raka@tim.id", role: "worker", divisionId: "div-anim", lastSeen: Date.now() },
+    "m3": { id: "m3", name: "Nadia Putri", email: "nadia@tim.id", role: "worker", divisionId: "div-edit", lastSeen: 0 }
+  },
+  divisions: [
+    { id: "div-anim", name: "Divisi Animasi", description: "Blocking, spline, dan graph editor" },
+    { id: "div-edit", name: "Divisi Editing", description: "Compositing dan color grading" }
+  ],
+  tasks: [
+    {
+      id: "t1", wsId: "ws-demo", wsName: "Tim Produksi Animasi 3D",
+      title: "Blocking Scene 04 Karakter Utama",
+      description: "Fokus pada pose kunci, antisipasi, dan timing lompatan sebelum masuk tahap spline.",
+      assigneeId: "m2", assigneeName: "Raka Pratama", divisionId: "div-anim",
+      difficulty: "tinggi", status: "progress", startDate: today, endDate: today,
+      subtasks: [{ title: "Pose kunci awal", done: true }, { title: "Breakdown gerakan udara", done: false }],
+      attachments: [{ name: "Referensi Gerakan", url: "https://drive.google.com" }],
+      history: [{ text: "Tugas dibuat oleh Mentor", at: "Hari ini, 08:30" }],
+      comments: [
+        { authorId: "demo-mentor", authorName: "Greaven (Mentor)", text: "Pastikan arc lompatan di frame 24-36 terasa berat ya." },
+        { authorId: "m2", authorName: "Raka Pratama", text: "Siap kak, sedang dirapikan di Graph Editor." }
+      ]
+    },
+    {
+      id: "t2", wsId: "ws-demo", wsName: "Tim Produksi Animasi 3D",
+      title: "Color Grading Teaser Trailer",
+      description: "Sesuaikan tone warna dengan referensi moodboard warm sunset.",
+      assigneeId: "m3", assigneeName: "Nadia Putri", divisionId: "div-edit",
+      difficulty: "sedang", status: "review", startDate: today, endDate: today,
+      reportLink: "https://drive.google.com",
+      reportNotes: "Sudah selesai render versi pertama 1080p, mohon dicek.",
+      subtasks: [{ title: "Render preview 1080p", done: true }],
+      attachments: [{ name: "Laporan hasil kerja", url: "https://drive.google.com" }],
+      history: [{ text: "Laporan dikirim untuk ulasan", at: "Hari ini, 09:45" }],
+      comments: []
+    },
+    {
+      id: "t3", wsId: "ws-demo", wsName: "Tim Produksi Animasi 3D",
+      title: "Finalisasi Rigging Wajah",
+      description: "Cek kontrol ekspresi alis dan lip-sync dasar.",
+      assigneeId: "m2", assigneeName: "Raka Pratama", divisionId: "div-anim",
+      difficulty: "rendah", status: "done", startDate: today, endDate: today,
+      subtasks: [], attachments: [],
+      history: [{ text: "Disetujui mentor", at: "Kemarin" }],
+      comments: []
+    },
+    {
+      id: "t4", wsId: "ws-demo", wsName: "Tim Produksi Animasi 3D",
+      title: "Susun Storyboard Episode 2",
+      description: "Lengkapi catatan transisi kamera dan durasi per shot.",
+      assigneeId: "m3", assigneeName: "Nadia Putri", divisionId: "div-edit",
+      difficulty: "sedang", status: "todo", startDate: today, endDate: today,
+      subtasks: [], attachments: [], history: [], comments: []
+    }
+  ],
+  activities: [
+    { text: "Nadia Putri mengirim laporan untuk “Color Grading Teaser Trailer”" },
+    { text: "Raka Pratama mulai mengerjakan “Blocking Scene 04 Karakter Utama”" },
+    { text: "Mentor menyetujui tugas “Finalisasi Rigging Wajah”" }
+  ],
+  announcements: [
+    { id: "ann1", title: "Jadwal Review Mingguan", body: "Semua progres animasi dan compositing dikumpulkan paling lambat pukul 16.00 WIB hari ini.", pinned: true, authorName: "Greaven (Mentor)" }
+  ],
   activeTaskId: null,
   boardMode: localStorage.getItem("akasha_board_mode") || "kanban",
   quickActionOnly: false,
-  calDate: new Date(),
-  unsubs: [],
-  dashUnsubs: [],
-  commentUnsub: null,
-  presenceTimer: null
+  calDate: new Date()
 };
+state.dashTasks = state.tasks;
 
-const clearUnsubs = (list) => { while (list.length) { try { list.pop()(); } catch {} } };
 const isMentor = () => !!(state.currentWs && state.user && (state.currentWs.ownerId === state.user.uid || state.members[state.user.uid]?.role === "mentor"));
-const myDivisionId = () => state.members[state.user?.uid]?.divisionId || "general";
 const divisionName = (id) => id === "general" || !id ? "Umum" : (state.divisions.find((d) => d.id === id)?.name || "Umum");
 const memberName = (uid) => state.members[uid]?.name || "Anggota";
-
-/* ══════════ AUTH ══════════ */
-function initAuthUI() {
-  $("authToggleLink").addEventListener("click", (e) => { e.preventDefault(); $("loginForm").classList.add("hidden"); $("registerForm").classList.remove("hidden"); });
-  $("authToggleLink2").addEventListener("click", (e) => { e.preventDefault(); $("registerForm").classList.add("hidden"); $("loginForm").classList.remove("hidden"); });
-
-  $("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = $("loginBtn");
-    btn.disabled = true; btn.textContent = "Memproses…";
-    try {
-      await setPersistence(auth, $("rememberMe").checked ? browserLocalPersistence : browserSessionPersistence);
-      await signInWithEmailAndPassword(auth, $("loginEmail").value.trim(), $("loginPassword").value);
-    } catch (err) {
-      toast(err.code === "auth/invalid-credential" ? "Email atau kata sandi salah." : err.message, "bad");
-    } finally { btn.disabled = false; btn.textContent = "Masuk ke ruang kerja"; }
-  });
-
-  $("registerForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = $("registerName").value.trim();
-    if (!name) return toast("Nama wajib diisi.", "bad");
-    const btn = $("registerBtn");
-    btn.disabled = true; btn.textContent = "Membuat akun…";
-    try {
-      const cred = await createUserWithEmailAndPassword(auth, $("registerEmail").value.trim(), $("registerPassword").value);
-      await updateProfile(cred.user, { displayName: name });
-      await setDoc(doc(db, "users", cred.user.uid), { name, email: cred.user.email, createdAt: serverTimestamp() }, { merge: true });
-      toast("Akun berhasil dibuat.", "ok");
-    } catch (err) {
-      toast(err.code === "auth/email-already-in-use" ? "Email sudah terdaftar." : err.message, "bad");
-    } finally { btn.disabled = false; btn.textContent = "Buat akun"; }
-  });
-
-  $("googleLoginBtn").addEventListener("click", async () => {
-    try {
-      const cred = await signInWithPopup(auth, googleProvider);
-      await setDoc(doc(db, "users", cred.user.uid), { name: cred.user.displayName || "Pengguna", email: cred.user.email }, { merge: true });
-    } catch (err) { toast(err.message, "bad"); }
-  });
-
-  $("forgotPasswordLink").addEventListener("click", async (e) => {
-    e.preventDefault();
-    const email = await appPrompt({
-      title: "Atur ulang kata sandi",
-      message: "Tautan pemulihan akan dikirim ke email Anda.",
-      label: "Alamat email",
-      initial: $("loginEmail").value.trim(),
-      validate: (v) => (!v || !v.includes("@") ? "Masukkan alamat email yang valid." : null)
-    });
-    if (!email) return;
-    try { await sendPasswordResetEmail(auth, email); toast("Email pemulihan telah dikirim.", "ok"); }
-    catch (err) { toast(err.message, "bad"); }
-  });
-
-  $("logoutBtn").addEventListener("click", async () => {
-    clearUnsubs(state.unsubs);
-    clearUnsubs(state.dashUnsubs);
-    if (state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; }
-    if (state.presenceTimer) clearInterval(state.presenceTimer);
-    await signOut(auth);
-  });
-}
 
 /* ══════════ DASHBOARD & HERO BANNER ══════════ */
 function switchDashPanel(panel) {
@@ -333,44 +294,6 @@ function switchDashPanel(panel) {
   $("notificationsNavBtn").classList.toggle("active", panel === "notifications");
 }
 
-function subscribeDashboard() {
-  clearUnsubs(state.dashUnsubs);
-  const uid = state.user.uid;
-
-  const qWs = query(collection(db, "workspaces"), where("memberIds", "array-contains", uid));
-  state.dashUnsubs.push(onSnapshot(qWs, (snap) => {
-    state.workspaces = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderWorkspaceLists();
-    subscribeDashboardTasks();
-  }));
-
-  const qNotif = query(collection(db, "users", uid, "notifications"), orderBy("createdAt", "desc"), limit(30));
-  state.dashUnsubs.push(onSnapshot(qNotif, (snap) => {
-    state.notifications = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderNotifications();
-  }));
-}
-
-let dashTaskUnsubs = [];
-function subscribeDashboardTasks() {
-  clearUnsubs(dashTaskUnsubs);
-  state.dashTasks = [];
-  if (!state.workspaces.length) { renderDashboardHome(); return; }
-  const mapByWs = new Map();
-  state.workspaces.forEach((ws) => {
-    const unsub = onSnapshot(collection(db, "workspaces", ws.id, "tasks"), (snap) => {
-      const uid = state.user.uid;
-      const wsIsMentor = ws.ownerId === uid;
-      const items = snap.docs.map((d) => ({ id: d.id, wsId: ws.id, wsName: ws.name, ...d.data() }))
-        .filter((t) => wsIsMentor || t.assigneeId === uid);
-      mapByWs.set(ws.id, items);
-      state.dashTasks = Array.from(mapByWs.values()).flat();
-      renderDashboardHome();
-    });
-    dashTaskUnsubs.push(unsub);
-  });
-}
-
 function renderDashboardHome() {
   const tasks = state.dashTasks;
   const total = tasks.length;
@@ -379,7 +302,6 @@ function renderDashboardHome() {
   const done = tasks.filter((t) => t.status === "done").length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
-  // Update Hero Banner Dashboard
   const firstName = (state.user?.displayName || "Pengguna").split(" ")[0];
   $("dashBannerDate").textContent = formatFullTodayID();
   $("dashBannerGreeting").textContent = `Halo, ${firstName}! Siap menuntaskan target hari ini?`;
@@ -394,7 +316,6 @@ function renderDashboardHome() {
     <div class="stat-card"><strong>${review}</strong><span>Menunggu ulasan</span></div>
     <div class="stat-card ok"><strong>${done}</strong><span>Selesai</span></div>`;
 
-  const today = todayISO();
   const limitDate = new Date(); limitDate.setDate(limitDate.getDate() + 7);
   const maxISO = `${limitDate.getFullYear()}-${String(limitDate.getMonth() + 1).padStart(2, "0")}-${String(limitDate.getDate()).padStart(2, "0")}`;
   const upcoming = tasks.filter((t) => t.status !== "done" && t.endDate && t.endDate <= maxISO)
@@ -417,39 +338,31 @@ function renderDashboardHome() {
   }
 
   const prev = $("dashboardWorkspacePreview");
-  if (!state.workspaces.length) {
-    prev.innerHTML = `<p class="empty-hint">Belum tergabung di ruang kerja mana pun.</p>`;
-  } else {
-    prev.innerHTML = `<div class="ws-preview-list">${state.workspaces.slice(0, 4).map((ws) => `
-      <button type="button" class="ws-preview-item" data-open-ws="${esc(ws.id)}">
-        <span><strong>${esc(ws.name)}</strong><span>${(ws.memberIds || []).length} anggota</span></span>
-        <span class="code-pill">${esc(ws.code || "")}</span>
-      </button>`).join("")}</div>`;
-    prev.querySelectorAll("[data-open-ws]").forEach((b) => b.addEventListener("click", () => openWorkspace(b.dataset.openWs)));
-  }
+  prev.innerHTML = `<div class="ws-preview-list">${state.workspaces.map((ws) => `
+    <button type="button" class="ws-preview-item" data-open-ws="${esc(ws.id)}">
+      <span><strong>${esc(ws.name)}</strong><span>${(ws.memberIds || []).length} anggota</span></span>
+      <span class="code-pill">${esc(ws.code || "")}</span>
+    </button>`).join("")}</div>`;
+  prev.querySelectorAll("[data-open-ws]").forEach((b) => b.addEventListener("click", () => openWorkspace(b.dataset.openWs)));
 }
 
 function renderWorkspaceLists() {
   const list = $("workspaceList");
-  if (!state.workspaces.length) {
-    list.innerHTML = `<p class="empty-hint">Belum ada ruang kerja. Buat ruang baru atau gabung dengan kode 6 karakter.</p>`;
-  } else {
-    list.innerHTML = `<div class="workspace-grid">${state.workspaces.map((ws) => {
-      const role = ws.ownerId === state.user.uid ? "Mentor" : "Anggota";
-      return `<article class="workspace-card">
-        <div>
-          <h4>${esc(ws.name)}</h4>
-          <div class="ws-meta"><span class="role-badge">${role}</span><span>${(ws.memberIds || []).length} anggota</span><span class="code-pill">${esc(ws.code || "")}</span></div>
-        </div>
-        <div class="ws-card-actions">
-          <button type="button" class="btn-primary" data-enter="${esc(ws.id)}">Buka ruang kerja</button>
-          <button type="button" class="btn-sm" data-copy-code="${esc(ws.code || "")}" title="Salin kode undangan">Salin kode</button>
-        </div>
-      </article>`;
-    }).join("")}</div>`;
-    list.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => openWorkspace(b.dataset.enter)));
-    list.querySelectorAll("[data-copy-code]").forEach((b) => b.addEventListener("click", () => { navigator.clipboard?.writeText(b.dataset.copyCode); toast("Kode disalin ke papan klip.", "ok"); }));
-  }
+  list.innerHTML = `<div class="workspace-grid">${state.workspaces.map((ws) => {
+    const role = ws.ownerId === state.user.uid ? "Mentor" : "Anggota";
+    return `<article class="workspace-card">
+      <div>
+        <h4>${esc(ws.name)}</h4>
+        <div class="ws-meta"><span class="role-badge">${role}</span><span>${(ws.memberIds || []).length} anggota</span><span class="code-pill">${esc(ws.code || "")}</span></div>
+      </div>
+      <div class="ws-card-actions">
+        <button type="button" class="btn-primary" data-enter="${esc(ws.id)}">Buka ruang kerja</button>
+        <button type="button" class="btn-sm" data-copy-code="${esc(ws.code || "")}" title="Salin kode undangan">Salin kode</button>
+      </div>
+    </article>`;
+  }).join("")}</div>`;
+  list.querySelectorAll("[data-enter]").forEach((b) => b.addEventListener("click", () => openWorkspace(b.dataset.enter)));
+  list.querySelectorAll("[data-copy-code]").forEach((b) => b.addEventListener("click", () => { navigator.clipboard?.writeText(b.dataset.copyCode); toast("Kode disalin ke papan klip.", "ok"); }));
   renderDashboardHome();
 }
 
@@ -463,11 +376,13 @@ function renderNotifications() {
     if (!items.length) { el.innerHTML = `<p class="empty-hint">Belum ada notifikasi.</p>`; return; }
     el.innerHTML = `<div class="notif-list">${items.map((n) => `
       <div class="notif-item ${n.read ? "" : "unread"}" data-nid="${esc(n.id)}" data-ws="${esc(n.wsId || "")}" data-task="${esc(n.taskId || "")}">
-        <div><p>${esc(n.text)}</p><small>${esc(n.wsName || "Akasha")} · ${timeAgo(n.createdAt)}</small></div>
+        <div><p>${esc(n.text)}</p><small>${esc(n.wsName || "Akasha")} · ${timeAgo()}</small></div>
         ${n.read ? "" : '<span class="notif-dot" aria-label="Belum dibaca"></span>'}
       </div>`).join("")}</div>`;
-    el.querySelectorAll(".notif-item").forEach((row) => row.addEventListener("click", async () => {
-      await updateDoc(doc(db, "users", state.user.uid, "notifications", row.dataset.nid), { read: true }).catch(() => {});
+    el.querySelectorAll(".notif-item").forEach((row) => row.addEventListener("click", () => {
+      const item = state.notifications.find((x) => x.id === row.dataset.nid);
+      if (item) item.read = true;
+      renderNotifications();
       if (row.dataset.ws) openWorkspace(row.dataset.ws, row.dataset.task || null);
     }));
   };
@@ -475,91 +390,32 @@ function renderNotifications() {
   renderInto($("dashboardNotificationsListFull"), state.notifications);
 }
 
-async function notifyUser(uid, { text, wsId = "", wsName = "", taskId = "" }) {
-  if (!uid || uid === state.user?.uid) return;
-  await addDoc(collection(db, "users", uid, "notifications"), { text, wsId, wsName, taskId, read: false, createdAt: serverTimestamp() }).catch(() => {});
-}
-
-/* ══════════ WORKSPACE LIFECYCLE ══════════ */
-async function openWorkspace(wsId, focusTaskId = null) {
-  clearUnsubs(state.unsubs);
-  if (state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; }
-  if (state.presenceTimer) clearInterval(state.presenceTimer);
-
-  const wsSnap = await getDoc(doc(db, "workspaces", wsId));
-  if (!wsSnap.exists()) return toast("Ruang kerja tidak ditemukan.", "bad");
-  state.currentWs = { id: wsSnap.id, ...wsSnap.data() };
-
+/* ══════════ WORKSPACE LIFECYCLE (LOCAL PREVIEW) ══════════ */
+function openWorkspace(wsId, focusTaskId = null) {
+  state.currentWs = state.workspaces.find((w) => w.id === wsId) || state.workspaces[0];
   $("dashboardView").classList.add("hidden");
   $("workspaceView").classList.remove("hidden");
   switchWsTab("tasks");
-
-  const wsRef = doc(db, "workspaces", wsId);
-  state.unsubs.push(onSnapshot(wsRef, (snap) => {
-    if (!snap.exists()) { leaveToDashboard(); return; }
-    state.currentWs = { id: snap.id, ...snap.data() };
-    syncWorkspaceHeader();
-  }));
-
-  state.unsubs.push(onSnapshot(collection(db, "workspaces", wsId, "members"), (snap) => {
-    state.members = {};
-    snap.forEach((d) => { state.members[d.id] = { id: d.id, ...d.data() }; });
-    syncWorkspaceHeader();
-    populateAssigneeSelects();
-    renderTeamAndPresence();
-    renderMemberSettings();
-    renderTasks();
-  }));
-
-  state.unsubs.push(onSnapshot(collection(db, "workspaces", wsId, "divisions"), (snap) => {
-    state.divisions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    populateAssigneeSelects();
-    renderDivisions();
-    renderMemberSettings();
-    renderTasks();
-  }));
-
-  const qTasks = query(collection(db, "workspaces", wsId, "tasks"), orderBy("createdAt", "desc"));
-  state.unsubs.push(onSnapshot(qTasks, (snap) => {
-    state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderTasks();
-    renderCalendar();
-    renderTeamAndPresence();
-    if (state.activeTaskId) renderTaskDetail(state.activeTaskId);
-    if (focusTaskId) { const id = focusTaskId; focusTaskId = null; openTaskDetail(id); }
-  }));
-
-  const qAct = query(collection(db, "workspaces", wsId, "activities"), orderBy("createdAt", "desc"), limit(100));
-  state.unsubs.push(onSnapshot(qAct, (snap) => {
-    state.activities = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderActivities();
-  }));
-
-  const qAnn = query(collection(db, "workspaces", wsId, "announcements"), orderBy("createdAt", "desc"));
-  state.unsubs.push(onSnapshot(qAnn, (snap) => {
-    state.announcements = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderAnnouncements();
-  }));
-
-  const beat = () => setDoc(doc(db, "workspaces", wsId, "members", state.user.uid), {
-    name: state.user.displayName || "Anggota",
-    email: state.user.email || "",
-    lastSeen: Date.now()
-  }, { merge: true }).catch(() => {});
-  beat();
-  state.presenceTimer = setInterval(beat, 30000);
+  syncWorkspaceHeader();
+  populateAssigneeSelects();
+  renderTasks();
+  renderCalendar();
+  renderActivities();
+  renderAnnouncements();
+  renderTeamAndPresence();
+  renderDivisions();
+  renderMemberSettings();
   loadDailyGoal();
+  if (focusTaskId) openTaskDetail(focusTaskId);
 }
 
 function leaveToDashboard() {
-  clearUnsubs(state.unsubs);
-  if (state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; }
-  if (state.presenceTimer) clearInterval(state.presenceTimer);
   state.currentWs = null;
   state.activeTaskId = null;
   $("workspaceView").classList.add("hidden");
   $("dashboardView").classList.remove("hidden");
   switchDashPanel("home");
+  renderDashboardHome();
 }
 
 function syncWorkspaceHeader() {
@@ -576,7 +432,6 @@ function syncWorkspaceHeader() {
   $("driveStatusText").textContent = ws.driveLink ? "Folder Drive utama aktif." : "Belum ada folder yang tertaut.";
   $("driveStatusText").classList.toggle("ok", !!ws.driveLink);
 
-  // Sync Workspace Hero Banner
   $("wsHeroDate").textContent = `${ws.name} · ${formatFullTodayID()}`;
   $("wsHeroGreeting").textContent = mentor ? `Dasbor Mentor — ${ws.name}` : `Ruang Kerja ${ws.name}`;
   $("wsHeroSub").textContent = mentor
@@ -597,13 +452,6 @@ function switchWsTab(tab) {
     $(panelId).classList.toggle("hidden", k !== tab);
     $(btnId).classList.toggle("active", k === tab);
   });
-}
-
-async function logActivity(text) {
-  if (!state.currentWs) return;
-  await addDoc(collection(db, "workspaces", state.currentWs.id, "activities"), {
-    text, actorId: state.user.uid, actorName: state.user.displayName || "Anggota", createdAt: serverTimestamp()
-  }).catch(() => {});
 }
 
 /* ══════════ TASKS: KANBAN, TABLE, FILTERING & STATS ══════════ */
@@ -660,11 +508,9 @@ function renderTasks() {
   const fDiv = $("filterDivision").value;
   const fAss = $("filterAssignee").value;
   const sortBy = $("sortTasks").value;
-  const today = todayISO();
 
   const visibleBase = state.tasks.filter((t) => mentor || t.assigneeId === uid);
 
-  // Update Workspace Hero Metrics
   const totalBase = visibleBase.length;
   const doneBase = visibleBase.filter((t) => t.status === "done").length;
   const pendingBase = totalBase - doneBase;
@@ -675,7 +521,6 @@ function renderTasks() {
   const circumference = 163.36;
   $("wsProgressRing").style.strokeDashoffset = String(circumference - (pct / 100) * circumference);
 
-  // Filter
   let list = visibleBase.filter((t) => {
     if (fStatus && t.status !== fStatus) return false;
     if (fDiff && (t.difficulty || "sedang") !== fDiff) return false;
@@ -689,14 +534,12 @@ function renderTasks() {
     return true;
   });
 
-  // Sort
   if (sortBy === "deadline") {
     list = [...list].sort((a, b) => (a.endDate || "9999-12-31").localeCompare(b.endDate || "9999-12-31"));
   } else if (sortBy === "difficulty") {
     list = [...list].sort((a, b) => (DIFF_META[b.difficulty || "sedang"]?.[2] || 2) - (DIFF_META[a.difficulty || "sedang"]?.[2] || 2));
   }
 
-  // Deadline Banner
   const urgent = visibleBase.filter((t) => t.status !== "done" && t.endDate && t.endDate <= today);
   const banner = $("deadlineBanner");
   if (urgent.length) {
@@ -706,13 +549,11 @@ function renderTasks() {
     banner.classList.add("hidden");
   }
 
-  // Toggle View Mode
   $("kanbanBoardView").classList.toggle("hidden", state.boardMode !== "kanban");
   $("tableBoardView").classList.toggle("hidden", state.boardMode !== "table");
   $("viewKanbanBtn").classList.toggle("active", state.boardMode === "kanban");
   $("viewTableBtn").classList.toggle("active", state.boardMode === "table");
 
-  // 1. Render Kanban
   const cols = { todo: [], progress: [], review: [], done: [] };
   list.forEach((t) => {
     const st = cols[t.status] ? t.status : "todo";
@@ -750,7 +591,6 @@ function renderTasks() {
     }
   });
 
-  // 2. Render Table
   const tbody = $("taskTableBody");
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6" class="table-empty">Tidak ada tugas yang cocok dengan filter saat ini.</td></tr>`;
@@ -778,40 +618,33 @@ function renderTasks() {
   tbody.querySelectorAll("tr.task-row").forEach((tr) => tr.addEventListener("click", () => openTaskDetail(tr.dataset.tid)));
 }
 
-/* ══════════ TASK DETAIL & REAL-TIME DISCUSSION ══════════ */
+/* ══════════ TASK DETAIL & LOCAL DISCUSSION ══════════ */
 function openTaskDetail(taskId) {
   state.activeTaskId = taskId;
   renderTaskDetail(taskId);
-  subscribeTaskComments(taskId);
+  renderTaskComments(taskId);
   $("taskDetailModal").classList.remove("hidden");
 }
 
-function subscribeTaskComments(taskId) {
-  if (state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; }
-  const ws = state.currentWs;
-  if (!ws || !taskId) return;
+function renderTaskComments(taskId) {
+  const t = state.tasks.find((x) => x.id === taskId);
   const listEl = $("detailCommentList");
-  listEl.innerHTML = `<p class="empty-hint">Memuat diskusi…</p>`;
-
-  const qCom = query(collection(db, "workspaces", ws.id, "tasks", taskId, "comments"), orderBy("createdAt", "asc"), limit(100));
-  state.commentUnsub = onSnapshot(qCom, (snap) => {
-    if (snap.empty) {
-      listEl.innerHTML = `<p class="empty-hint">Belum ada diskusi. Tanyakan kendala atau beri arahan di sini.</p>`;
-      return;
-    }
-    listEl.innerHTML = snap.docs.map((d) => {
-      const c = d.data();
-      const isMine = c.authorId === state.user?.uid;
-      return `<div class="comment-bubble ${isMine ? "mine" : ""}">
-        <div class="comment-bubble-head">
-          <strong>${esc(c.authorName || "Anggota")}</strong>
-          <span>${timeAgo(c.createdAt)}</span>
-        </div>
-        <p>${esc(c.text)}</p>
-      </div>`;
-    }).join("");
-    listEl.scrollTop = listEl.scrollHeight;
-  });
+  const comments = t?.comments || [];
+  if (!comments.length) {
+    listEl.innerHTML = `<p class="empty-hint">Belum ada diskusi. Tanyakan kendala atau beri arahan di sini.</p>`;
+    return;
+  }
+  listEl.innerHTML = comments.map((c) => {
+    const isMine = c.authorId === state.user?.uid;
+    return `<div class="comment-bubble ${isMine ? "mine" : ""}">
+      <div class="comment-bubble-head">
+        <strong>${esc(c.authorName || "Anggota")}</strong>
+        <span>${timeAgo()}</span>
+      </div>
+      <p>${esc(c.text)}</p>
+    </div>`;
+  }).join("");
+  listEl.scrollTop = listEl.scrollHeight;
 }
 
 function renderTaskDetail(taskId) {
@@ -833,9 +666,8 @@ function renderTaskDetail(taskId) {
   const driveHref = safeUrl(t.driveSource === "individual" ? t.reportLink : (state.currentWs?.driveLink || t.driveLink));
   $("detailTaskDrive").innerHTML = driveHref
     ? `<a href="${esc(driveHref)}" target="_blank" rel="noopener noreferrer">Buka folder Google Drive ↗</a>`
-    : `<span class="status-text">${t.driveSource === "individual" ? "Anggota menyertakan tautan saat mengirim laporan." : "Belum ada tautan Drive."}</span>`;
+    : `<span class="status-text">Belum ada tautan Drive.</span>`;
 
-  // Subtasks
   const subs = Array.isArray(t.subtasks) ? t.subtasks : [];
   const doneCount = subs.filter((s) => s.done).length;
   const pct = subs.length ? Math.round((doneCount / subs.length) * 100) : 0;
@@ -844,96 +676,73 @@ function renderTaskDetail(taskId) {
   $("detailSubtaskAdd").classList.toggle("hidden", !(mentor || mine));
   $("detailSubtaskList").innerHTML = subs.length ? subs.map((s, idx) => `
     <div class="subtask-item ${s.done ? "done" : ""}">
-      <label><input type="checkbox" data-sub-idx="${idx}" ${s.done ? "checked" : ""} ${mentor || mine ? "" : "disabled"} /><span>${esc(s.title)}</span></label>
+      <label><input type="checkbox" data-sub-idx="${idx}" ${s.done ? "checked" : ""} /><span>${esc(s.title)}</span></label>
       ${mentor ? `<button type="button" class="subtask-del" data-sub-del="${idx}" aria-label="Hapus sub-tugas">×</button>` : ""}
     </div>`).join("") : `<p class="status-text">Belum ada sub-tugas.</p>`;
 
-  $("detailSubtaskList").querySelectorAll("[data-sub-idx]").forEach((cb) => cb.addEventListener("change", async () => {
-    const next = subs.map((item, i) => i === Number(cb.dataset.subIdx) ? { ...item, done: cb.checked } : item);
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", t.id), { subtasks: next });
+  $("detailSubtaskList").querySelectorAll("[data-sub-idx]").forEach((cb) => cb.addEventListener("change", () => {
+    subs[Number(cb.dataset.subIdx)].done = cb.checked;
+    renderTaskDetail(t.id);
+    renderTasks();
   }));
-  $("detailSubtaskList").querySelectorAll("[data-sub-del]").forEach((btn) => btn.addEventListener("click", async () => {
-    const next = subs.filter((_, i) => i !== Number(btn.dataset.subDel));
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", t.id), { subtasks: next });
+  $("detailSubtaskList").querySelectorAll("[data-sub-del]").forEach((btn) => btn.addEventListener("click", () => {
+    subs.splice(Number(btn.dataset.subDel), 1);
+    renderTaskDetail(t.id);
+    renderTasks();
   }));
 
-  // Attachments
   const atts = Array.isArray(t.attachments) ? t.attachments : [];
   $("attachUploader").classList.toggle("hidden", !(mentor || mine));
   $("detailAttachList").innerHTML = atts.length ? atts.map((a, idx) => {
     const href = safeUrl(a.url);
     return `<div class="attach-item">
       ${href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(a.name)} ↗</a>` : `<span>${esc(a.name)}</span>`}
-      ${mentor || mine ? `<button type="button" class="subtask-del" data-att-del="${idx}" aria-label="Hapus lampiran">×</button>` : ""}
+      <button type="button" class="subtask-del" data-att-del="${idx}" aria-label="Hapus lampiran">×</button>
     </div>`;
   }).join("") : `<p class="status-text">Belum ada lampiran.</p>`;
-  $("detailAttachList").querySelectorAll("[data-att-del]").forEach((btn) => btn.addEventListener("click", async () => {
-    const next = atts.filter((_, i) => i !== Number(btn.dataset.attDel));
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", t.id), { attachments: next });
+  $("detailAttachList").querySelectorAll("[data-att-del]").forEach((btn) => btn.addEventListener("click", () => {
+    atts.splice(Number(btn.dataset.attDel), 1);
+    renderTaskDetail(t.id);
   }));
 
-  // Revision box
   const revBox = $("detailRevisionBox");
   if (t.revisionNotes) { $("detailRevisionNotes").textContent = t.revisionNotes; revBox.classList.remove("hidden"); }
   else revBox.classList.add("hidden");
 
-  // History
   const hist = Array.isArray(t.history) ? t.history : [];
   $("detailHistoryList").innerHTML = hist.length
     ? `<div class="history-list">${hist.slice(-6).reverse().map((h) => `<div class="history-item"><span>${esc(h.text)}</span><span>${esc(h.at || "")}</span></div>`).join("")}</div>`
     : `<span class="status-text">Belum ada riwayat perubahan.</span>`;
 
-  // Report & Review boxes
   const showReport = mine && (t.status === "todo" || t.status === "progress");
   const showReview = mentor && t.status === "review";
   $("detailReportBox").classList.toggle("hidden", !showReport);
   $("detailReviewBox").classList.toggle("hidden", !showReview);
   $("reportError").classList.add("hidden");
   $("reviewError").classList.add("hidden");
-  if (showReport) { $("reportLink").value = t.reportLink || ""; $("reportNotes").value = t.reportNotes || ""; }
-  if (showReview) { $("reviewNotes").value = ""; }
 
-  // Action buttons
   const actBox = $("detailActionButtons");
   actBox.innerHTML = "";
   const addBtn = (label, cls, fn) => { const b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = label; b.onclick = fn; actBox.appendChild(b); };
-  const taskRef = doc(db, "workspaces", state.currentWs.id, "tasks", t.id);
   const stamp = new Date().toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-  if (mine && t.status === "todo") {
-    addBtn("Mulai kerjakan", "btn-sm", async () => {
-      await updateDoc(taskRef, { status: "progress", history: arrayUnion({ text: "Mulai dikerjakan", at: stamp }) });
-      logActivity(`${state.user.displayName} mulai mengerjakan “${t.title}”`);
-    });
-  }
-  if (showReport) {
-    addBtn("Kirim laporan ke mentor", "btn-primary", async () => {
-      const link = safeUrl($("reportLink").value);
-      if (!link) { $("reportError").textContent = "Masukkan tautan hasil kerja yang valid (https://…)."; $("reportError").classList.remove("hidden"); return; }
-      const notes = $("reportNotes").value.trim();
-      await updateDoc(taskRef, {
-        status: "review", reportLink: link, reportNotes: notes,
-        attachments: arrayUnion({ name: "Laporan hasil kerja", url: link }),
-        history: arrayUnion({ text: "Laporan dikirim untuk ulasan", at: stamp })
-      });
-      await logActivity(`${state.user.displayName} mengirim laporan untuk “${t.title}”`);
-      await notifyUser(state.currentWs.ownerId, { text: `${state.user.displayName} mengirim laporan tugas “${t.title}”.`, wsId: state.currentWs.id, wsName: state.currentWs.name, taskId: t.id });
-      toast("Laporan berhasil dikirim.", "ok");
-    });
-  }
   if (showReview) {
-    addBtn("Terima & selesaikan", "btn-primary", async () => {
-      await updateDoc(taskRef, { status: "done", revisionNotes: "", history: arrayUnion({ text: "Disetujui mentor", at: stamp }) });
-      await logActivity(`Mentor menyetujui tugas “${t.title}”`);
-      await notifyUser(t.assigneeId, { text: `Tugas “${t.title}” telah disetujui mentor.`, wsId: state.currentWs.id, wsName: state.currentWs.name, taskId: t.id });
+    addBtn("Terima & selesaikan", "btn-primary", () => {
+      t.status = "done";
+      t.revisionNotes = "";
+      t.history.push({ text: "Disetujui mentor (Preview)", at: stamp });
+      renderTaskDetail(t.id);
+      renderTasks();
       toast("Tugas ditandai selesai.", "ok");
     });
-    addBtn("Minta revisi", "btn-sm btn-danger-outline", async () => {
+    addBtn("Minta revisi", "btn-sm btn-danger-outline", () => {
       const note = $("reviewNotes").value.trim();
       if (!note) { $("reviewError").textContent = "Tuliskan catatan bagian yang perlu direvisi."; $("reviewError").classList.remove("hidden"); return; }
-      await updateDoc(taskRef, { status: "progress", revisionNotes: note, history: arrayUnion({ text: `Revisi diminta: ${note}`, at: stamp }) });
-      await logActivity(`Mentor meminta revisi pada “${t.title}”`);
-      await notifyUser(t.assigneeId, { text: `Revisi diminta pada “${t.title}”: ${note}`, wsId: state.currentWs.id, wsName: state.currentWs.name, taskId: t.id });
+      t.status = "progress";
+      t.revisionNotes = note;
+      t.history.push({ text: `Revisi diminta: ${note}`, at: stamp });
+      renderTaskDetail(t.id);
+      renderTasks();
       toast("Permintaan revisi dikirim.", "ok");
     });
   }
@@ -945,11 +754,12 @@ function renderTaskDetail(taskId) {
       $("editTaskModal").classList.remove("hidden");
     });
     addBtn("Hapus tugas", "btn-sm btn-danger-outline", async () => {
-      const ok = await appConfirm({ title: "Hapus tugas?", message: `Tugas “${t.title}” akan dihapus permanen.`, confirmText: "Hapus tugas", danger: true });
+      const ok = await appConfirm({ title: "Hapus tugas?", message: `Tugas “${t.title}” akan dihapus (Preview).`, confirmText: "Hapus tugas", danger: true });
       if (!ok) return;
-      await deleteDoc(taskRef);
-      if (state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; }
+      state.tasks = state.tasks.filter((x) => x.id !== t.id);
+      state.dashTasks = state.tasks;
       $("taskDetailModal").classList.add("hidden");
+      renderTasks();
       toast("Tugas dihapus.", "ok");
     });
   }
@@ -963,9 +773,7 @@ function renderCalendar() {
   const firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const prevDays = new Date(year, month, 0).getDate();
-  const today = todayISO();
-  const mentor = isMentor();
-  const visible = state.tasks.filter((t) => (mentor || t.assigneeId === state.user?.uid) && t.endDate);
+  const visible = state.tasks.filter((t) => t.endDate);
 
   const cells = [];
   for (let i = firstDow - 1; i >= 0; i--) cells.push({ day: prevDays - i, iso: "", out: true });
@@ -989,25 +797,24 @@ function renderCalendar() {
 function renderActivities() {
   const el = $("activityList");
   if (!state.activities.length) { el.innerHTML = `<p class="empty-hint">Belum ada aktivitas tercatat.</p>`; return; }
-  el.innerHTML = `<div class="activity-list">${state.activities.map((a) => `<div class="activity-item"><span>${esc(a.text)}</span><small>${timeAgo(a.createdAt)}</small></div>`).join("")}</div>`;
+  el.innerHTML = `<div class="activity-list">${state.activities.map((a) => `<div class="activity-item"><span>${esc(a.text)}</span><small>${timeAgo()}</small></div>`).join("")}</div>`;
 }
 
 function renderAnnouncements() {
   const el = $("announceList");
   if (!state.announcements.length) { el.innerHTML = `<p class="empty-hint">Belum ada pengumuman di ruang kerja ini.</p>`; return; }
   const sorted = [...state.announcements].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-  const mentor = isMentor();
   el.innerHTML = `<div class="announce-list">${sorted.map((a) => `
     <article class="announce-card ${a.pinned ? "pinned" : ""}">
       <div class="announce-head">
         <h4>${a.pinned ? "📌 " : ""}${esc(a.title)}</h4>
-        ${mentor ? `<div style="display:flex;gap:.35rem">
+        <div style="display:flex;gap:.35rem">
           <button type="button" class="btn-sm" data-edit-ann="${esc(a.id)}">Edit</button>
           <button type="button" class="btn-sm btn-danger-outline" data-del-ann="${esc(a.id)}">Hapus</button>
-        </div>` : ""}
+        </div>
       </div>
       <p class="announce-body">${esc(a.body)}</p>
-      <div class="announce-foot"><span>Oleh ${esc(a.authorName || "Mentor")}</span><span>${timeAgo(a.createdAt)}</span></div>
+      <div class="announce-foot"><span>Oleh ${esc(a.authorName || "Mentor")}</span><span>${timeAgo()}</span></div>
     </article>`).join("")}</div>`;
 
   el.querySelectorAll("[data-edit-ann]").forEach((b) => b.addEventListener("click", () => {
@@ -1020,7 +827,10 @@ function renderAnnouncements() {
   }));
   el.querySelectorAll("[data-del-ann]").forEach((b) => b.addEventListener("click", async () => {
     const ok = await appConfirm({ title: "Hapus pengumuman?", message: "Pengumuman ini akan dihapus dari papan.", confirmText: "Hapus", danger: true });
-    if (ok) await deleteDoc(doc(db, "workspaces", state.currentWs.id, "announcements", b.dataset.delAnn));
+    if (ok) {
+      state.announcements = state.announcements.filter((x) => x.id !== b.dataset.delAnn);
+      renderAnnouncements();
+    }
   }));
 }
 
@@ -1046,28 +856,23 @@ function renderTeamAndPresence() {
       </div>
     </div>`;
   };
-  const html = members.length ? members.map(cardHTML).join("") : `<p class="empty-hint">Belum ada anggota.</p>`;
+  const html = members.map(cardHTML).join("");
   $("teamMembersList").innerHTML = html;
   $("memberPresenceList").innerHTML = html;
 }
 
 function renderDivisions() {
   const box = $("divisionListContainer");
-  if (!state.divisions.length) { box.innerHTML = `<p class="empty-hint">Belum ada divisi khusus. Semua anggota berada di divisi “Umum”.</p>`; return; }
+  if (!state.divisions.length) { box.innerHTML = `<p class="empty-hint">Belum ada divisi khusus.</p>`; return; }
   box.innerHTML = `<div class="division-list">${state.divisions.map((d) => `
     <div class="division-item">
       <div><strong>${esc(d.name)}</strong><p>${esc(d.description || "Tanpa deskripsi")}</p></div>
       <button type="button" class="btn-sm btn-danger-outline" data-del-div="${esc(d.id)}">Hapus</button>
     </div>`).join("")}</div>`;
-  box.querySelectorAll("[data-del-div]").forEach((b) => b.addEventListener("click", async () => {
-    const ok = await appConfirm({ title: "Hapus divisi?", message: "Anggota divisi ini akan dipindahkan ke divisi Umum.", confirmText: "Hapus divisi", danger: true });
-    if (!ok) return;
-    const batch = writeBatch(db);
-    Object.values(state.members).filter((m) => m.divisionId === b.dataset.delDiv).forEach((m) => {
-      batch.update(doc(db, "workspaces", state.currentWs.id, "members", m.id), { divisionId: "general" });
-    });
-    batch.delete(doc(db, "workspaces", state.currentWs.id, "divisions", b.dataset.delDiv));
-    await batch.commit();
+  box.querySelectorAll("[data-del-div]").forEach((b) => b.addEventListener("click", () => {
+    state.divisions = state.divisions.filter((x) => x.id !== b.dataset.delDiv);
+    renderDivisions();
+    populateAssigneeSelects();
     toast("Divisi dihapus.", "ok");
   }));
 }
@@ -1101,7 +906,7 @@ function renderMemberSettings() {
 }
 
 /* ══════════ DAILY GOAL ══════════ */
-function goalKey() { return `akasha_goal_${state.user?.uid}_${state.currentWs?.id}_${todayISO()}`; }
+function goalKey() { return `akasha_preview_goal_${todayISO()}`; }
 function loadDailyGoal() {
   const val = localStorage.getItem(goalKey()) || "";
   $("dailyGoalInput").value = val;
@@ -1110,7 +915,6 @@ function loadDailyGoal() {
 
 /* ══════════ EVENT WIRING ══════════ */
 function wireEvents() {
-  // Dashboard navigation
   $("dashboardNavBtn").onclick = () => switchDashPanel("home");
   $("myWorkspacesNavBtn").onclick = () => switchDashPanel("workspaces");
   $("notificationsNavBtn").onclick = () => switchDashPanel("notifications");
@@ -1121,27 +925,19 @@ function wireEvents() {
   $("accountBtn").onclick = openAccount;
   $("accountBtnTop").onclick = openAccount;
 
-  $("accountForm").addEventListener("submit", async (e) => {
+  $("accountForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const name = $("accountName").value.trim();
-    const pass = $("accountPassword").value;
-    try {
-      if (name && name !== state.user.displayName) {
-        await updateProfile(state.user, { displayName: name });
-        await setDoc(doc(db, "users", state.user.uid), { name }, { merge: true });
-        $("topbarUserName").textContent = name;
-        $("topbarUserAvatar").textContent = initialOf(name);
-      }
-      if (pass) {
-        if (pass.length < 6) return toast("Kata sandi minimal 6 karakter.", "bad");
-        await updatePassword(state.user, pass);
-      }
-      $("accountModal").classList.add("hidden");
-      toast("Profil diperbarui.", "ok");
-    } catch (err) { toast(err.message, "bad"); }
+    if (name) {
+      state.user.displayName = name;
+      $("topbarUserName").textContent = name;
+      $("topbarUserAvatar").textContent = initialOf(name);
+      renderDashboardHome();
+    }
+    $("accountModal").classList.add("hidden");
+    toast("Profil preview diperbarui.", "ok");
   });
 
-  // Dark mode
   const darkToggle = $("darkModeToggle");
   darkToggle.checked = localStorage.getItem("akasha_dark") === "1";
   document.documentElement.classList.toggle("dark", darkToggle.checked);
@@ -1150,59 +946,35 @@ function wireEvents() {
     localStorage.setItem("akasha_dark", darkToggle.checked ? "1" : "0");
   });
 
-  $("markAllReadBtn").addEventListener("click", async () => {
-    const batch = writeBatch(db);
-    state.notifications.filter((n) => !n.read).forEach((n) => batch.update(doc(db, "users", state.user.uid, "notifications", n.id), { read: true }));
-    await batch.commit();
+  $("markAllReadBtn").addEventListener("click", () => {
+    state.notifications.forEach((n) => (n.read = true));
+    renderNotifications();
     toast("Semua notifikasi ditandai dibaca.", "ok");
   });
 
-  // Create & join workspace
-  $("createWorkspaceBtn").onclick = () => { $("newWorkspaceName").value = ""; $("newWorkspaceCode").value = Math.random().toString(36).substring(2, 8).toUpperCase(); $("newWorkspaceDrive").value = ""; $("createWorkspaceModal").classList.remove("hidden"); };
+  $("logoutBtn").addEventListener("click", () => toast("Mode Preview aktif (tanpa halaman login).", "ok"));
+
+  $("createWorkspaceBtn").onclick = () => { $("newWorkspaceName").value = ""; $("newWorkspaceCode").value = Math.random().toString(36).substring(2, 8).toUpperCase(); $("createWorkspaceModal").classList.remove("hidden"); };
   $("joinWorkspaceBtn").onclick = () => { $("joinCodeInput").value = ""; $("joinWorkspaceModal").classList.remove("hidden"); };
 
-  $("createWorkspaceForm").addEventListener("submit", async (e) => {
+  $("createWorkspaceForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const name = $("newWorkspaceName").value.trim();
     const code = $("newWorkspaceCode").value.trim().toUpperCase();
-    const driveLink = safeUrl($("newWorkspaceDrive").value);
     if (!name || code.length !== 6) return toast("Nama dan kode 6 karakter wajib diisi.", "bad");
-    const btn = $("createWorkspaceSubmitBtn"); btn.disabled = true;
-    try {
-      const wsRef = await addDoc(collection(db, "workspaces"), {
-        name, code, driveLink, ownerId: state.user.uid, memberIds: [state.user.uid], createdAt: serverTimestamp()
-      });
-      await setDoc(doc(db, "workspaces", wsRef.id, "members", state.user.uid), {
-        name: state.user.displayName || "Mentor", email: state.user.email || "", role: "mentor", divisionId: "general", lastSeen: Date.now()
-      });
-      $("createWorkspaceModal").classList.add("hidden");
-      toast("Ruang kerja dibuat.", "ok");
-      openWorkspace(wsRef.id);
-    } catch (err) { toast(err.message, "bad"); } finally { btn.disabled = false; }
+    const newWs = { id: `ws-${Date.now()}`, name, code, ownerId: "demo-mentor", memberIds: ["demo-mentor"], driveLink: "" };
+    state.workspaces.push(newWs);
+    $("createWorkspaceModal").classList.add("hidden");
+    renderWorkspaceLists();
+    toast("Ruang kerja preview dibuat.", "ok");
   });
 
-  $("joinWorkspaceForm").addEventListener("submit", async (e) => {
+  $("joinWorkspaceForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const code = $("joinCodeInput").value.trim().toUpperCase();
-    if (code.length !== 6) return toast("Kode undangan harus 6 karakter.", "bad");
-    const btn = $("joinWorkspaceSubmitBtn"); btn.disabled = true;
-    try {
-      const snap = await getDocs(query(collection(db, "workspaces"), where("code", "==", code), limit(1)));
-      if (snap.empty) return toast("Kode ruang kerja tidak ditemukan.", "bad");
-      const wsDoc = snap.docs[0];
-      const data = wsDoc.data();
-      if ((data.memberIds || []).length >= 20 && !(data.memberIds || []).includes(state.user.uid)) return toast("Ruang kerja sudah penuh (maks 20 anggota).", "bad");
-      await updateDoc(wsDoc.ref, { memberIds: arrayUnion(state.user.uid) });
-      await setDoc(doc(db, "workspaces", wsDoc.id, "members", state.user.uid), {
-        name: state.user.displayName || "Anggota", email: state.user.email || "", role: "worker", divisionId: "general", lastSeen: Date.now()
-      }, { merge: true });
-      $("joinWorkspaceModal").classList.add("hidden");
-      toast(`Bergabung ke ${data.name}.`, "ok");
-      openWorkspace(wsDoc.id);
-    } catch (err) { toast(err.message, "bad"); } finally { btn.disabled = false; }
+    $("joinWorkspaceModal").classList.add("hidden");
+    toast("Simulasi gabung ruang kerja berhasil.", "ok");
   });
 
-  // Workspace tabs & actions
   $("tabTaskView").onclick = () => switchWsTab("tasks");
   $("tabCalendarView").onclick = () => { switchWsTab("calendar"); renderCalendar(); };
   $("tabActivityView").onclick = () => switchWsTab("activity");
@@ -1211,14 +983,12 @@ function wireEvents() {
   $("tabDivisionView").onclick = () => switchWsTab("divisions");
   $("backToDashboardBtn").onclick = leaveToDashboard;
 
-  // Toggle Form Pembuat Tugas
   $("toggleCreatorBtn").addEventListener("click", () => {
     const form = $("createTaskForm");
     const hidden = form.classList.toggle("hidden");
     $("toggleCreatorBtn").textContent = hidden ? "Tampilkan Form" : "Sembunyikan Form";
   });
 
-  // Board Mode Switcher (Kanban vs Table) & Quick Action Filter
   $("viewKanbanBtn").addEventListener("click", () => {
     state.boardMode = "kanban";
     localStorage.setItem("akasha_board_mode", "kanban");
@@ -1235,37 +1005,6 @@ function wireEvents() {
     renderTasks();
   });
 
-  $("leaveWorkspaceBtn").addEventListener("click", async () => {
-    if (!state.currentWs) return;
-    if (state.currentWs.ownerId === state.user.uid) return toast("Mentor pemilik tidak bisa keluar. Hapus ruang kerja bila sudah selesai.", "bad");
-    const ok = await appConfirm({ title: "Keluar dari ruang kerja?", message: `Anda akan keluar dari ${state.currentWs.name}.`, confirmText: "Keluar", danger: true });
-    if (!ok) return;
-    await updateDoc(doc(db, "workspaces", state.currentWs.id), { memberIds: arrayRemove(state.user.uid) });
-    await deleteDoc(doc(db, "workspaces", state.currentWs.id, "members", state.user.uid)).catch(() => {});
-    leaveToDashboard();
-  });
-
-  $("changeCodeBtn").addEventListener("click", async () => {
-    const code = await appPrompt({
-      title: "Ganti kode undangan",
-      message: "Kode lama otomatis tidak berlaku.",
-      label: "Kode baru (6 karakter)",
-      initial: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      validate: (v) => (/^[A-Za-z0-9]{6}$/.test(v) ? null : "Gunakan tepat 6 huruf atau angka.")
-    });
-    if (!code) return;
-    await updateDoc(doc(db, "workspaces", state.currentWs.id), { code: code.toUpperCase() });
-    toast("Kode undangan diperbarui.", "ok");
-  });
-
-  $("deleteWorkspaceBtn").addEventListener("click", async () => {
-    const ok = await appConfirm({ title: "Hapus ruang kerja?", message: `Seluruh tugas dan data di “${state.currentWs.name}” akan hilang permanen.`, confirmText: "Hapus permanen", danger: true });
-    if (!ok) return;
-    await deleteDoc(doc(db, "workspaces", state.currentWs.id));
-    leaveToDashboard();
-    toast("Ruang kerja dihapus.", "ok");
-  });
-
   $("saveDailyGoalBtn").addEventListener("click", () => {
     localStorage.setItem(goalKey(), $("dailyGoalInput").value.trim());
     loadDailyGoal();
@@ -1275,200 +1014,167 @@ function wireEvents() {
   $("taskDriveSource").addEventListener("change", () => {
     $("workspaceDriveGroup").classList.toggle("hidden", $("taskDriveSource").value === "individual");
   });
-  $("saveDriveBtn").addEventListener("click", async () => {
-    const link = safeUrl($("driveLinkInput").value);
-    if ($("driveLinkInput").value.trim() && !link) return toast("Tautan Google Drive tidak valid.", "bad");
-    await updateDoc(doc(db, "workspaces", state.currentWs.id), { driveLink: link });
-    toast("Tautan Drive disimpan.", "ok");
+  $("saveDriveBtn").addEventListener("click", () => {
+    state.currentWs.driveLink = safeUrl($("driveLinkInput").value);
+    syncWorkspaceHeader();
+    toast("Tautan Drive disimpan (Preview).", "ok");
   });
 
-  // Create task
-  $("createTaskForm").addEventListener("submit", async (e) => {
+  $("createTaskForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const title = $("taskTitle").value.trim();
     if (!title) return;
     const target = $("taskAssignee").value;
-    const members = Object.values(state.members);
-    let recipients = [];
-    if (target === "all") recipients = members.filter((m) => m.id !== state.user.uid);
-    else if (target.startsWith("div:")) {
-      const divId = target.slice(4);
-      recipients = members.filter((m) => (m.divisionId || "general") === divId && m.id !== state.user.uid);
-    } else {
-      const one = state.members[target];
-      if (one) recipients = [one];
-    }
-    if (!recipients.length) return toast("Tidak ada anggota penerima pada pilihan tersebut.", "bad");
-
+    const assignee = state.members[target] || state.members["m2"];
     const subtasks = $("taskSubtasks").value.split("\n").map((s) => s.trim()).filter(Boolean).map((s) => ({ title: s, done: false }));
-    const payloadBase = {
+    state.tasks.unshift({
+      id: `t-${Date.now()}`,
+      wsId: state.currentWs.id,
+      wsName: state.currentWs.name,
       title,
       difficulty: $("taskDifficulty").value,
-      driveSource: $("taskDriveSource").value,
-      driveLink: state.currentWs.driveLink || "",
-      startDate: $("startDate").value || todayISO(),
-      endDate: $("endDate").value || "",
+      startDate: $("startDate").value || today,
+      endDate: $("endDate").value || today,
       description: $("taskDesc").value.trim(),
       subtasks,
       attachments: [],
       status: "todo",
-      createdBy: state.user.uid,
-      createdAt: serverTimestamp()
-    };
-
-    const batch = writeBatch(db);
-    recipients.forEach((m) => {
-      const ref = doc(collection(db, "workspaces", state.currentWs.id, "tasks"));
-      batch.set(ref, { ...payloadBase, assigneeId: m.id, assigneeName: m.name, divisionId: m.divisionId || "general" });
+      assigneeId: assignee.id,
+      assigneeName: assignee.name,
+      divisionId: assignee.divisionId || "general",
+      history: [{ text: "Tugas dibuat (Preview)", at: "Baru saja" }],
+      comments: []
     });
-    await batch.commit();
-    await logActivity(`Mentor membagikan tugas “${title}” ke ${recipients.length} anggota`);
-    await Promise.all(recipients.map((m) => notifyUser(m.id, { text: `Tugas baru: “${title}” di ${state.currentWs.name}.`, wsId: state.currentWs.id, wsName: state.currentWs.name })));
-
+    state.dashTasks = state.tasks;
     $("createTaskForm").reset();
-    $("taskDriveSource").dispatchEvent(new Event("change"));
-    toast(`Tugas dibagikan ke ${recipients.length} anggota.`, "ok");
+    renderTasks();
+    toast("Tugas contoh ditambahkan.", "ok");
   });
 
-  // Filters
   ["taskSearch", "filterStatus", "filterDifficulty", "filterDivision", "filterAssignee", "sortTasks"].forEach((id) => {
     $(id).addEventListener("input", renderTasks);
     $(id).addEventListener("change", renderTasks);
   });
 
-  // Subtask & attachment add inside detail modal
-  $("addSubtaskBtn").addEventListener("click", async () => {
+  $("addSubtaskBtn").addEventListener("click", () => {
     const val = $("subtaskInput").value.trim();
-    if (!val || !state.activeTaskId) return;
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", state.activeTaskId), { subtasks: arrayUnion({ title: val, done: false }) });
+    const t = state.tasks.find((x) => x.id === state.activeTaskId);
+    if (!val || !t) return;
+    t.subtasks.push({ title: val, done: false });
     $("subtaskInput").value = "";
+    renderTaskDetail(t.id);
+    renderTasks();
   });
 
-  $("addAttachBtn").addEventListener("click", async () => {
+  $("addAttachBtn").addEventListener("click", () => {
     const name = $("attachName").value.trim() || "Lampiran tautan";
     const url = safeUrl($("attachUrl").value);
-    if (!url || !state.activeTaskId) return toast("Masukkan URL lampiran yang valid.", "bad");
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", state.activeTaskId), { attachments: arrayUnion({ name, url }) });
+    const t = state.tasks.find((x) => x.id === state.activeTaskId);
+    if (!url || !t) return toast("Masukkan URL lampiran yang valid.", "bad");
+    t.attachments.push({ name, url });
     $("attachName").value = ""; $("attachUrl").value = "";
+    renderTaskDetail(t.id);
   });
 
-  // Task Real-Time Discussion Submit
-  $("taskCommentForm").addEventListener("submit", async (e) => {
+  $("taskCommentForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const inp = $("taskCommentInput");
     const text = inp.value.trim();
-    if (!text || !state.activeTaskId || !state.currentWs) return;
-    inp.value = "";
     const t = state.tasks.find((x) => x.id === state.activeTaskId);
-    await addDoc(collection(db, "workspaces", state.currentWs.id, "tasks", state.activeTaskId, "comments"), {
-      text,
-      authorId: state.user.uid,
-      authorName: state.user.displayName || "Anggota",
-      createdAt: serverTimestamp()
-    });
-    if (t) {
-      const targetUid = isMentor() ? t.assigneeId : state.currentWs.ownerId;
-      await notifyUser(targetUid, {
-        text: `${state.user.displayName} berkomentar di tugas “${t.title}”: "${text.slice(0, 50)}"`,
-        wsId: state.currentWs.id,
-        wsName: state.currentWs.name,
-        taskId: t.id
-      });
-    }
+    if (!text || !t) return;
+    inp.value = "";
+    t.comments.push({ authorId: state.user.uid, authorName: state.user.displayName, text });
+    renderTaskComments(t.id);
   });
 
-  // Edit task & announcement modals
-  $("editTaskForm").addEventListener("submit", async (e) => {
+  $("editTaskForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const id = $("editTaskId").value;
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "tasks", id), {
-      title: $("editTaskTitleInput").value.trim(),
-      description: $("editTaskDescInput").value.trim()
-    });
+    const t = state.tasks.find((x) => x.id === $("editTaskId").value);
+    if (t) {
+      t.title = $("editTaskTitleInput").value.trim();
+      t.description = $("editTaskDescInput").value.trim();
+      renderTaskDetail(t.id);
+      renderTasks();
+    }
     $("editTaskModal").classList.add("hidden");
     toast("Tugas diperbarui.", "ok");
   });
 
-  $("announceForm").addEventListener("submit", async (e) => {
+  $("announceForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const title = $("announceTitle").value.trim();
     const body = $("announceBody").value.trim();
     if (!title || !body) return;
-    await addDoc(collection(db, "workspaces", state.currentWs.id, "announcements"), {
-      title, body, pinned: $("announcePinned").checked, authorName: state.user.displayName || "Mentor", createdAt: serverTimestamp()
-    });
-    await logActivity(`Mentor memposting pengumuman “${title}”`);
+    state.announcements.unshift({ id: `ann-${Date.now()}`, title, body, pinned: $("announcePinned").checked, authorName: state.user.displayName });
     $("announceForm").reset();
+    renderAnnouncements();
     toast("Pengumuman dikirim.", "ok");
   });
 
-  $("editAnnounceForm").addEventListener("submit", async (e) => {
+  $("editAnnounceForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "announcements", $("editAnnounceId").value), {
-      title: $("editAnnounceTitle").value.trim(),
-      body: $("editAnnounceBody").value.trim()
-    });
+    const a = state.announcements.find((x) => x.id === $("editAnnounceId").value);
+    if (a) {
+      a.title = $("editAnnounceTitle").value.trim();
+      a.body = $("editAnnounceBody").value.trim();
+      renderAnnouncements();
+    }
     $("editAnnounceModal").classList.add("hidden");
     toast("Pengumuman diperbarui.", "ok");
   });
 
-  // Divisions & member settings
-  $("createDivisionForm").addEventListener("submit", async (e) => {
+  $("createDivisionForm").addEventListener("submit", (e) => {
     e.preventDefault();
     const name = $("newDivisionName").value.trim();
     if (!name) return;
-    await addDoc(collection(db, "workspaces", state.currentWs.id, "divisions"), { name, description: $("newDivisionDesc").value.trim() });
+    state.divisions.push({ id: `div-${Date.now()}`, name, description: $("newDivisionDesc").value.trim() });
     $("createDivisionForm").reset();
+    renderDivisions();
+    populateAssigneeSelects();
     toast("Divisi dibuat.", "ok");
   });
 
-  $("editMemberForm").addEventListener("submit", async (e) => {
+  $("editMemberForm").addEventListener("submit", (e) => {
     e.preventDefault();
-    const mid = $("editMemberId").value;
-    await updateDoc(doc(db, "workspaces", state.currentWs.id, "members", mid), {
-      role: $("editMemberRole").value,
-      divisionId: $("editMemberDivision").value
-    });
+    const m = state.members[$("editMemberId").value];
+    if (m) {
+      m.role = $("editMemberRole").value;
+      m.divisionId = $("editMemberDivision").value;
+      renderMemberSettings();
+      renderTeamAndPresence();
+      renderTasks();
+    }
     $("editMemberModal").classList.add("hidden");
     toast("Pengaturan anggota disimpan.", "ok");
   });
 
-  // Calendar nav
   $("calPrev").onclick = () => { state.calDate.setMonth(state.calDate.getMonth() - 1); renderCalendar(); };
   $("calNext").onclick = () => { state.calDate.setMonth(state.calDate.getMonth() + 1); renderCalendar(); };
   $("calToday").onclick = () => { state.calDate = new Date(); renderCalendar(); };
 
-  // Modal close buttons & backdrop click
   document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => {
     const id = b.dataset.close;
-    if (id === "taskDetailModal" && state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; state.activeTaskId = null; }
+    if (id === "taskDetailModal") state.activeTaskId = null;
     $(id).classList.add("hidden");
   }));
   document.querySelectorAll(".modal").forEach((m) => m.addEventListener("click", (e) => {
     if (e.target === m && m.id !== "appDialog") {
-      if (m.id === "taskDetailModal" && state.commentUnsub) { state.commentUnsub(); state.commentUnsub = null; state.activeTaskId = null; }
+      if (m.id === "taskDetailModal") state.activeTaskId = null;
       m.classList.add("hidden");
     }
   }));
 }
 
-/* ══════════ BOOT ══════════ */
+/* ══════════ BOOT PREVIEW MODE ══════════ */
 document.querySelectorAll("select[data-enhance]").forEach(enhanceSelect);
-initAuthUI();
 wireEvents();
 
-onAuthStateChanged(auth, (user) => {
-  state.user = user;
-  if (user) {
-    $("authView").classList.add("hidden");
-    $("dashboardView").classList.remove("hidden");
-    const name = user.displayName || user.email?.split("@")[0] || "Pengguna";
-    $("topbarUserName").textContent = name;
-    $("topbarUserAvatar").textContent = initialOf(name);
-    subscribeDashboard();
-  } else {
-    $("dashboardView").classList.add("hidden");
-    $("workspaceView").classList.add("hidden");
-    $("authView").classList.remove("hidden");
-  }
-});
+// Langsung buka Dashboard tanpa halaman login
+$("authView").classList.add("hidden");
+$("dashboardView").classList.remove("hidden");
+$("topbarUserName").textContent = state.user.displayName;
+$("topbarUserAvatar").textContent = initialOf(state.user.displayName);
+
+renderWorkspaceLists();
+renderDashboardHome();
+renderNotifications();
